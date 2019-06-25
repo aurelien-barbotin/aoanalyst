@@ -15,13 +15,11 @@ from scipy.optimize import minimize
 from scipy.linalg import norm, qr
 from numpy.random import normal
 from scipy import ndimage
-
+import matplotlib.pyplot as plt
 if __name__!="__main__":
     from . import msvst
-else:
-    import aotools
-from aotools.ext.misc import entropy
-from aotools.sensorless.sensorless import wavelet_decomposition,fine_wavelet_decomposition
+
+from aoanalyst.misc import entropy
 sigma2s = []
 fpr = 5e-5
 
@@ -230,21 +228,7 @@ def crop(img,frac=0.1):
     u,v = img.shape
     im = img[int(frac*u):int((1-frac)*u),int(frac*v):int((1-frac)*v)]
     return im
-def haar(img,norm=False):
-    fw = fine_wavelet_decomposition(img,wlt='haar')
-    def gradient(elements):
-        out=0
-        for el in elements:
-            out+=el**2
-        return np.sqrt(out)
-    fw = np.asarray([gradient(x) for x in fw])
-    if norm:
-        fw = normalised_scale_energy(fw)
-    else:
-        
-        fw = [crop(x) for x in fw]
-        fw = np.asarray([np.sum(x**2) for x in fw])
-    return fw
+
 
 def run(
         iofun, x0, maxbias, nquad, imgshape,

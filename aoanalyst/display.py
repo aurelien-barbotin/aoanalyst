@@ -29,8 +29,6 @@ from aoanalyst import mvect
 from aoanalyst.graphics import interactive_plot,comparative_barplot,\
     correction_comparison_plot,image_overlay,display_aberration_difference
 
-
-
 from matplotlib import colors as mcolors
 
 def find_angles(im):
@@ -549,7 +547,6 @@ def modal_summary(files):
         modes = ext["modes"]
         nplots += len(modes)
 
-    from aotools.ext.misc import find_optimal_arrangement
     n1,n2 = find_optimal_arrangement(nplots)
     fig,axes = plt.subplots(n1,n2)
     axes = axes.ravel()
@@ -590,7 +587,6 @@ def modal_summary(files):
     fig.legend([x for x in plots], tuple(["Measured","Fit","Correction"]), 'upper right')
     fig.tight_layout()
     correction = ext["reference_aberration"]+ext["xopt"]
-    from aotools.ext.graphics import display_aberration_difference
     display_aberration_difference(correction-reference_aberration)
     
 def analyse_pupilIntensiy(file,plot=False):

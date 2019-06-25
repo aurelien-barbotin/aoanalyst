@@ -32,7 +32,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 
-import aotools.ext.fitters as fitters
+import sensorless.fitting as fitters
 
 
 path = "."
