@@ -16,9 +16,8 @@ import multipletau
 import h5py
 
 from itertools import chain
-
+from sklearn.decomposition import PCA
 from scipy.optimize import curve_fit
-from aotools.ext.pretrieval import fit_g2d
 
 from matplotlib_scalebar.scalebar import ScaleBar
 
@@ -33,6 +32,96 @@ from aoanalyst.graphics import interactive_plot,comparative_barplot,\
 
 
 from matplotlib import colors as mcolors
+
+def find_angles(im):
+    """Finds the angle of the principal components in a grayscale image like an
+    intensity profile using PCA.
+    Parameters:
+        im: numpy 2D array, """
+    img = im.copy()
+    shape = im.shape
+    x = np.arange(shape[0])
+    y = np.arange(shape[1])
+    xx,yy=np.meshgrid(x,y)
+    #xx=xx.reshape(-1)
+    #yy=yy.reshape(-1)
+    #To reduce number of points
+    max_n_samples = 10**5
+    while np.sum(img)>max_n_samples and np.max(img)>10:
+        img = img//2
+    n_samples = np.sum(img)
+    X = np.zeros((n_samples,2))
+    xind=0
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+            for k in range(img[i,j]):
+                #print(im[i,j],i,j)
+                X[xind,:]=np.array([i,j])
+                xind+=1
+    pc = PCA()
+    pc.fit(X)
+    return pc.components_,pc.mean_
+
+def gaussian2D(x,xc,yc,sigma1,sigma2,a,c):
+    """Generates a 2D gaussian modeling an illumination pattern, with possibly
+    an asymetry.
+    Parameters: 
+        x: numpy 2D array. The distance values are stored in axis 0 and axis 1 
+        differentiates between the two directions
+        xc: float, center along the first direction
+        yc: float, center along the second direction
+        sigma1: float, gaussian standard deviation along the first direction
+        sigma2: float, gaussian standard deviation along the second direction
+        a: float, amplitude of the gaussian
+        c: float, offset of the gaussian
+    Returns:
+        gaussian: numpy 1D array, the values of the gaussian evaluated in x"""
+    xd1=x[:,0]-xc
+    xd2=x[:,1]-yc
+    return a*np.exp(-.5*( (xd1/sigma1)**2 + (xd2/sigma2)**2))+c
+def fit_g2d(image):
+    """Fits an intensity profile with an asymetric gaussian. Same as fit_intensity,
+    except that it also returns the parameters of the fit
+    Parameters:
+        image: numpy 2D array, grayscale intensity profile
+    Returns:
+        fit: numpy 2D array, the image fitted
+        popt: numpy 1D array, contains the parameters of the fit
+        center: the center of the gaussian"""
+    image_u8 = ((image/np.max(image))*255).astype(np.uint8)
+    u,v = image.shape
+    x = np.arange(u)
+    y = np.arange(v)
+    yy,xx=np.meshgrid(y,x)
+    
+    pc,mean=find_angles(image_u8)
+    #To convert into rotation matrix
+    if pc[0][0]*pc[1][1]<0:
+        pc[0]*=-1
+    #Generate the distances map for new basis
+    x1= pc[0][0]*xx+pc[0][1]*yy
+    x2 = pc[1][0]*xx+pc[1][1]*yy
+    c1 = np.median(x1)
+    c2 = np.median(x2)
+    
+    x1-=c1
+    x2-=c2
+    
+    X = np.zeros((u*v,2))
+    X[:,0] = x1.reshape(-1)
+    X[:,1] = x2.reshape(-1)
+    
+    ydata = image.reshape(-1)
+    
+    popt,covs = curve_fit(gaussian2D,X,ydata)
+    
+    fit =  gaussian2D(X,*popt).reshape(u,v)
+    Ri = np.array([[pc[1][1],-1*pc[0][1]],
+                   [-1*pc[1][0],pc[0][0]]])
+    
+    center = np.array([popt[0],popt[1]])+np.array([c1,c2])
+    center = np.dot(Ri,center)
+    return fit,popt,center
 
 # !!! Change
 def sted_power(x):
