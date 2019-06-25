@@ -9,7 +9,6 @@ This file contains miscalleneous functions useful to display data.
 import math
 
 import numpy as np
-import cv2
 import matplotlib.pyplot as plt
 from scipy.stats import kurtosis
 from scipy.signal import convolve2d
@@ -100,50 +99,7 @@ def plot_details(xdata, ydata, images, optimum, ax=None, supp_values=None,
     ax.set_ylim(0, 1)
     return ax
 
-def cv_overlay_mask2image(mask,img,color="green"):
-    """Overlay a mask to an image using opencv. Assumes that we work in BGR
-    Color space
-    Parameters:
-        mask: numpy array, binary mask which contains True or 1 where we want to
-        color img
-        img: numpy array, the image to overlay (grayscale)
-        color: string, optional. The color of the mask to overlay. Careful when
-        displaying with matplotlib as it is in RGB space."""
-    transparency=0.2
-    colors= {
-            "green":[0,1,0],
-             "blue":[1,0,0],
-             "red":[0,0,1],
-             "purple":[1,0,0.5],
-             "yellow":[0,1,1],
-             "pink":[1,0,1]
-             }
-    if color in colors:
-        factors = colors[color]
-    else:
-        factors = colors['pink']
-    if mask.dtype==np.int:
-        mask = mask>0
-        mask = mask.astype(np.uint8)*255
-    if mask.dtype==bool:
-        mask = mask.astype(np.uint8)*255
-    mask = cv2.cvtColor(mask,cv2.COLOR_GRAY2BGR)
-    if img.dtype=="int16":
-        img = (img.astype(np.float)/np.max(img)*255).astype(np.uint8)
-        
-    if len(img.shape)==2:
-        image=cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
-    else:
-        image=img.copy()
-    
-    for i in range(3):
-        factor=factors[i]
-        if type(factor)!=float:
-            mask[:,:,i]*=factor
-        else:
-            mask[:,:,i]/=int(1/factor)
-    cv2.addWeighted(mask,transparency,image,1-transparency,0,image)
-    return image
+
   
 def interactive_plot(xdata,ydata,images,supp_values=None,fig=None):
     """
@@ -253,6 +209,9 @@ def interactive_mode(file,mode,fig=None,supp_metrics=[],names=[]):
         legend.append(nm)
     ax.legend(legend)
 
+def overlay_mask2image(im1,im2):
+    print("!!! overlay function not implemented")
+    return im1
 def image_comparison(im1,im2,fig=None):
     if fig is None:
         fig = plt.figure()
@@ -282,14 +241,14 @@ def image_comparison(im1,im2,fig=None):
     plt.colorbar(imax3, cax=cax)
     
     diff = (im1-im2)>0
-    over=cv_overlay_mask2image(diff,im1)
+    over=overlay_mask2image(diff,im1)
     ax4 = fig.add_subplot(324)
     ax4.imshow(over )
     ax4.set_title("Difference>0")
     ax4.set_axis_off()
     
     normdiff = (im1/np.max(im1)-im2/np.max(im2))
-    over=cv_overlay_mask2image(diff,im1)
+    over=overlay_mask2image(diff,im1)
     ax5 = fig.add_subplot(325)
     imax5=ax5.imshow(normdiff )
     ax5.set_title("Difference of normalised Images")
@@ -299,7 +258,7 @@ def image_comparison(im1,im2,fig=None):
     plt.colorbar(imax5, cax=cax)
 
     
-    over2=cv_overlay_mask2image(normdiff>0,im1)
+    over2=overlay_mask2image(normdiff>0,im1)
     ax6 = fig.add_subplot(326)
     ax6.imshow(over2 )
     ax6.set_title("Normalised Difference>0")
