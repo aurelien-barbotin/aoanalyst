@@ -15,7 +15,6 @@ Created on Tue Aug 22 13:40:30 2017
 Contains a set of functions of general use.
 """
 import os
-from cv2 import imwrite
 import numpy as np
 import h5py
 import time
@@ -25,9 +24,6 @@ from skimage.io import imsave
 import glob
 import sys
 from shutil import copyfile
-
-import aotools
-from aotools.ext import czernike
 
 experiment_class = ["modal","fcs","correlation","FCS_calibration"]
 
@@ -60,37 +56,7 @@ class AberrationNames(object):
         
 aberration_names = AberrationNames()
 
-def extract_images(log_images,file,P,modes=None,number=None):
-    """
-    Method used to extract the images in h5 files and save them to make them 
-    easier to observe
-    Parameters: 
-        log_images: np.ndarray, 3D array containing the images.
-        file: string, name of the file
-        P: int, number of measurement points per mode
-        modes: array or list, indices of the Zernike modes. If None, considers 
-        the N first modes, N being calculated from P and the shape of the data.
-        number: int, experiment number. If None, does not assign a number to an experiment
-        
-        
-    """
-    if modes is None:
-        Nz = log_images.shape[0]//P
-        modes = np.arange(1,Nz+1,dtype = np.int)
-    filename = file[:-3] + "_images"
-    if number:
-        filename = str(number)+"_"+filename
-    if not os.path.isdir(filename):
-        os.mkdir(filename)
-    for j,mode in enumerate(modes):
-        sub_images = log_images[j*P:(j+1)*P,:,:]
-        path_mode = os.path.join(filename,aberration_names[mode])
-        if not os.path.isdir(path_mode):
-            os.mkdir(path_mode)
-        for i in range(P):
-            sub_sub_image = sub_images[i,:,:]
-            imwrite(os.path.join(path_mode,str(i)+".png"), sub_sub_image)
-            
+
 
 def fancy_kurtosis(stack,mu=None,std=None,normalise=True):
     """
@@ -131,7 +97,6 @@ def entropy(image,m=None,M=None):
     Returns:
         entropy: float, tha value of the entropy
     """
-    from scipy.ndimage.filters import gaussian_filter
     image = image.astype(np.float)
     #image = gaussian_filter(image,0.2)
     image = image/np.max(image)
@@ -227,77 +192,6 @@ def modal_fcs_extractor(file):
             out[key] = h5f['modal/'][key].value
     return out
 
-def zernike_analysis(phase, rho,n=4,n_modes=None):
-    r"""Decompose the phase in Zernike modes using a least squares 
-    regression"""
-
-    # FIXME probably ENZ modes should be used instead of Zernike modes
-    rzern = czernike.RZern(n)
-    u,v = phase.shape
-    x = np.linspace(-u/2,u/2,u)/rho
-    y = np.linspace(-v/2,v/2,v)/rho
-    xx,yy=np.meshgrid(x,y)
-    rzern.make_cart_grid(xx,yy)
-    zfm = np.isfinite(rzern.ZZ[:, 0])
-    zfA = rzern.ZZ[zfm, :]
-    if n_modes is not None:
-        zfA = zfA[:,:n_modes]
-    uph1 = phase.reshape(-1)[zfm]
-    
-    alpha_hat = lstsq(zfA, uph1)[0]
-
-    return alpha_hat,rzern.ZZ
-
-def zernike_generation(phase, rho,mode):
-    r"""Generates a zernike phase mask with radius rho.
-    Parameters:
-        phase: numpy 2D array,phase mask used as a template
-        rho: float,radius of the phase to generate
-        mode: int, mode number
-    Returns:
-        zfA: 2D numpy array, phase mask of mode with amplitude 1rad rms"""
-
-    # FIXME probably ENZ modes should be used instead of Zernike modes
-    if mode<15:
-        n=4
-    elif mode<28:
-        n=6
-    else:
-        n=8
-    rzern = czernike.RZern(n)
-    u,v = phase.shape
-    x = np.linspace(-u/2,u/2,u)/rho
-    y = np.linspace(-v/2,v/2,v)/rho
-    xx,yy=np.meshgrid(x,y)
-    rzern.make_cart_grid(xx,yy)
-    zfA = rzern.ZZ[:, mode].reshape(u,v)
-    zfA[~np.isfinite(zfA)] = 0
-    return zfA
-
-def array_zernike_generation(phase, rho,ab):
-    r"""Generates a zernike phase mask with radius rho.
-    Parameters:
-        phase: numpy 2D array,phase mask used as a template
-        rho: float,radius of the phase to generate
-        mode: numpy 1D array, Zernike coefficients
-    Returns:
-        zfA: 2D numpy array, phase mask of mode with amplitude 1rad rms"""
-
-    # FIXME probably ENZ modes should be used instead of Zernike modes
-    if ab.size<=15:
-        n=4
-    elif ab.size<=28:
-        n=6
-    else:
-        n=8
-    rzern = czernike.RZern(n)
-    u,v = phase.shape
-    x = np.linspace(-u/2,u/2,u)/rho
-    y = np.linspace(-v/2,v/2,v)/rho
-    xx,yy=np.meshgrid(x,y)
-    rzern.make_cart_grid(xx, yy)
-    out=rzern.eval_grid(ab).reshape(phase.shape)
-    return out
 
 def svg_name_allocation(name=None):
     """Generates a file name to save the data of an experiment in a separate
