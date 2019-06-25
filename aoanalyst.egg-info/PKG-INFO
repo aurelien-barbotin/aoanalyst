@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: aoanalyst
+Version: 0.1
+Summary: Package for analysis of AO data
+Home-page: UNKNOWN
+Author: Aurelien Barbotin
+Author-email: aurelien.barbotin@dtc.ox.ac.uk
+License: MIT
+Description: GUI to analyse AO data
+        
+Platform: UNKNOWN
