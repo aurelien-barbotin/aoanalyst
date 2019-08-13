@@ -23,6 +23,11 @@ from aoanalyst.io import file_extractor,comparison_file_extractor
 from slm.slm import SLM
 from scipy import ndimage
 
+def reorder(x,y):
+    lists = sorted(zip(*[x, y]))
+    new_x, new_y = list(zip(*lists))
+    return new_x,new_y
+
 def sobelimage(im,horizontal = True,vertical=True):
     im = im.astype(np.float)
     u,v = im.shape
@@ -327,16 +332,14 @@ def plot_with_images(file,mode, fig = None, supp_metrics = None, show_exp = True
         import h5py
         h5f = h5py.File(file, 'r')
         images = h5f['stacks']['stacks'][()]
-        
-        before = images[0]
-        after = images[-1]
+
         log_images = images[1:-1]
     else:
         log_images = ext["log_images"]
     if "xdata" in ext:
-        xdata = ext['xdata'][mode]
-        ydata = ext['ydata'][mode]
-        
+        print(ext["modes"])
+        xdata = ext['xdata'][:,mode]
+        ydata = np.apply_along_axis( lambda x: x[mode],-1,ext['ydata'])
         P = xdata.size
         ydata/=np.max(ydata,axis=0)
     else:
@@ -356,7 +359,8 @@ def plot_with_images(file,mode, fig = None, supp_metrics = None, show_exp = True
     
     axplot = fig.add_axes([xoffset,yoffset,xsize,ysize])
     if show_exp:
-        axplot.plot(xdata,ydata,marker="o")
+        xd,yd = reorder(xdata,ydata)
+        axplot.plot(xd, yd,marker="o")
     
     supp_values=[]
     if supp_metrics is not None:
