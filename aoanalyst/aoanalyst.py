@@ -267,7 +267,7 @@ class AOAnalyst_GUI(QWidget):
         
         self.make_metrics_tab()
         self.make_custom_plot_tab()
-        self.make_labelling_tab()
+        # self.make_labelling_tab()
         
         self.imageComparisonWidget = QWidget()
         self.imageComparisonWidgetOn=False
@@ -283,8 +283,7 @@ class AOAnalyst_GUI(QWidget):
         self.grid.addWidget(self.expListWidget,1,0,4,1)
         self.grid.addWidget(self.plotBox,1,1,5,5)
         self.grid.addWidget(self.imageComparisonWidget,1,6,5,5)
-        self.grid.addWidget(self.custom_plot_tab,6,1,1,3)
-        self.grid.addWidget(self.labelling_tab,6,4,1,2)
+        self.grid.addWidget(self.custom_plot_tab,6,1,1,5)
         self.grid.addWidget(self.metrics_tab,5,0,2,1)
         
         
@@ -543,6 +542,7 @@ class AOAnalyst_GUI(QWidget):
         self.custom_plot_tab = top
     
     def make_labelling_tab(self):
+        # Not used anymore
         top = QGroupBox('Labelling')
         toplay = QGridLayout()
         top.setLayout(toplay)
