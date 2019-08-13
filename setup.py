@@ -8,15 +8,11 @@ Created on Tue Jun 25 15:43:08 2019
 
 from setuptools import setup, find_packages
 
-
-def readme():
-    with open('README.rst') as f:
-        return f.read()
     
 setup(name='aoanalyst',
       version='0.1',
       description='Package for analysis of AO data',
-      long_description = readme(),
+      long_description = "GUI for AO data visualisation and analysis",
       url='',
       packages = find_packages(),
       author='Aurelien Barbotin',
