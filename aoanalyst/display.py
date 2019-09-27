@@ -31,6 +31,90 @@ from aoanalyst.graphics import interactive_plot,comparative_barplot,\
 
 from matplotlib import colors as mcolors
 
+
+def open_SIN(file, channel=1, x0 = 10**-3):
+    """Reads the data from a SIN file and returns the autocorrelation functions.
+    Method needs to be edited to access every parameter.
+    Parameters:
+        file: str, SIN file to be opened
+        channel: int, the index of the channel to be extracted
+        x0: first data point of interest in ms
+    Returns:
+        channels: numpy array, shape (n_pts_per_corr,n_channels). 
+            Time information is located in the first channel
+        
+        """
+    #note: times are recorded in seconds
+    #assert(os.path.split(file)[-1]=="SIN")
+    ff = open(file,"r")
+    metadata=""
+    line=""
+    j=0
+    while line!='[CorrelationFunction]\n'and j<20:
+        line = ff.readline()
+        metadata+=line
+        j+=1
+    channels=[]
+    
+    while line:
+        line = ff.readline().rstrip().split("\t")
+        if len(line)<2:
+            break
+        else:
+            try:
+                channels.append(list(map(float,line)))
+            except:
+                print(line)
+    channels = np.asarray(channels)
+   
+    j=0
+    while line!='[RawCorrelationFunction]\n'and j<20:
+        line = ff.readline()
+        j+=1
+    headers_raw = ff.readline()
+    raw_channels = []
+    while line:
+        line = ff.readline().rstrip().split("\t")
+        if len(line)<2:
+            break
+        else:
+            try:
+                raw_channels.append(list(map(float,line)))
+            except:
+                print(line)
+    raw_channels = np.asarray(raw_channels)
+    channels[:,0] *= 10**3 #Conversion in ms
+    ch = channels[:,channel+1]
+    #SIN files contain correlation data past the correlation time:
+    #these values are equal to 0 and need to be discarded
+    xmax = channels[-np.where(((ch[1:]==0.0) !=(ch[:-1]==0.0) )[::-1])[0][0]-1,0]
+
+    channels[:,1:]-=1 #Correlations start from 0
+    
+    channels = channels[np.logical_and(channels[:,0]>x0,channels[:,0]<xmax)]
+    channels_of_interest = channels[:,[0,1+channel]]
+    
+    j=0
+    while line!='[IntensityHistory]\n'and j<20:
+        line = ff.readline()
+        j+=1
+    trace_number = ff.readline()
+    intensity_channels = []
+    while line:
+        line = ff.readline().rstrip().split("\t")
+        if len(line)<3:
+            break
+        else:
+            try:
+                intensity_channels.append(list(map(float,line)))
+            except:
+                print(line)
+    intensity_channels = np.asarray(intensity_channels)[:,[0,channel+1]]
+    
+    
+    ff.close()
+    return channels_of_interest
+
 def find_angles(im):
     """Finds the angle of the principal components in a grayscale image like an
     intensity profile using PCA.
