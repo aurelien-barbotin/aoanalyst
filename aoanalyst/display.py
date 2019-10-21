@@ -2402,7 +2402,9 @@ def plot_ac_curve(file,fig = None):
     if file.split(".")[-1]=="SIN":
         corr = open_SIN(file)
     else:
-        corr = np.load(file)
+        corr = np.load(file, allow_pickle = True)
+        if len(corr)==2:
+            corr = corr[0]
     x,y = corr[2:,0],corr[2:,1]
     if fig is None:
         fig = plt.figure()
