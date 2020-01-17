@@ -6,6 +6,5 @@ Home-page: UNKNOWN
 Author: Aurelien Barbotin
 Author-email: aurelien.barbotin@dtc.ox.ac.uk
 License: MIT
-Description: GUI to analyse AO data
-        
+Description: GUI for AO data visualisation and analysis
 Platform: UNKNOWN

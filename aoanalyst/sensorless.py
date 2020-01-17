@@ -166,11 +166,28 @@ def fcs_wavelet(data,sq=False,lvl=None):
         wr/=np.sum(wr)
     return wr
 
+def sum_n(data,factor):
+    u = data.size
+    u-= u%factor
+    out = np.sum(data[:u].reshape(-1,factor),axis=1)
+    return out
+
+def number_per_unit(signal):
+    """Hypothesis: 
+        -High photon counts (poisson noise substraction)
+        -One single specie"""
+    out = np.mean(signal)**2/(np.var(signal)-np.mean(signal))
+    return out
+
 
 
 metrics = {
             "std":np.std,
             "normalised variance":lambda x: np.std(x/np.mean(x)),
             "Sum squared":lambda x:np.sum(x**2),
-           "intensity":lambda x: float(np.sum(x))
+           "intensity":lambda x: float(np.sum(x)),
+           "N FCS": lambda x: number_per_unit(x),
+           "N FCS 10us": lambda x: number_per_unit(sum_n(x, 10)),
+           "N FCS 20us": lambda x: number_per_unit(sum_n(x, 20)),
+           "N FCS 50us": lambda x: number_per_unit(sum_n(x, 50)),
            }

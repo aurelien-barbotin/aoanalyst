@@ -217,12 +217,10 @@ def analyse_experiment(file,fig=None,interactive=None):
         of the data for the corresponding mode. If interactive=4, the function
         will produce an interactive plot for the mode 4 (astigmatism)."""
     ext = file_extractor(file)
-
     try:
         xopt = ext['xopt']
     except:
         pass
-        
     images = ext['log_images']
     modes = ext['modes']
     xdata = ext['xdata']
@@ -422,7 +420,8 @@ def display_experiment_results(file,fig=None,supp_metrics=[],show_legend=True,
     if "log_autocorrelations" in ext:
         fast_fcs_results(file,fig=fig,show_legend=fig,
                                show_experimental=show_experimental,fitter=fitter,
-                                                            autocorrelate = False)
+                               autocorrelate = False, supp_metrics = supp_metrics,
+                               names = names)
         return fig
     else:
         
@@ -503,7 +502,6 @@ def display_experiment_results(file,fig=None,supp_metrics=[],show_legend=True,
         axes.append(0)
     plots=[]
     
-    
     for i in range(Nz):
         axes[i] = fig.add_subplot(x_subplot,x_subplot,i+1)
         ax = axes[i]
@@ -536,7 +534,6 @@ def display_experiment_results(file,fig=None,supp_metrics=[],show_legend=True,
         
         ndpl = 0 #Number of n-dimensional plots added
         for l,met in enumerate(supp_metrics):
-            
             out=[]
             for j in range(P):
                 out.append(met(mode_images[j]))
@@ -1015,6 +1012,7 @@ def display_fcs_results(file,fig=None,supp_metrics=[],show_legend=True,
             metric curves. If None, no fitting is applied.
     Returns: fig, handle to the figure created.
         """
+    print("Analyse experiment: Snoop doooooog")
     colors = ["purple","black","green","orange","brown","pink","gray","olive",
               "cyan","blue","red"]
     ext = file_extractor(file)
@@ -2202,7 +2200,7 @@ def correlate_modal_h5(file, mfac=16,erase=False,first=0):
 
 def fast_fcs_results(file,fig=None,show_legend=True,
                                show_experimental=True,fitter=None,
-                                                            autocorrelate = True):
+                               autocorrelate = True, supp_metrics = [], names = []):
     """Plots the data from a modal FCS experiment. Computes the autocorrelations
     
     Parameters:
@@ -2224,7 +2222,13 @@ def fast_fcs_results(file,fig=None,show_legend=True,
     colors = ["purple","black","green","orange","brown","pink","gray","olive",
               "cyan","blue","red"]
     correlate_modal_h5(file,mfac=8)
-    ext = file_extractor(file,open_stacks=False)
+    if list(supp_metrics)==0:
+        ext = file_extractor(file, open_stacks = False)
+        images = None
+    else:
+        ext = file_extractor(file, open_stacks = True)
+        images = ext["log_images"]
+        
     log_autocorrelations = None
     log_autocorrfits = None
     
@@ -2302,8 +2306,6 @@ def fast_fcs_results(file,fig=None,show_legend=True,
         yh = yhat.transpose()[i].transpose()
         
         maxval=0
-        
-        
         maxval = np.max(y)
         my = np.max(y,axis=0)
         y/=my
@@ -2316,6 +2318,29 @@ def fast_fcs_results(file,fig=None,show_legend=True,
         xhat = np.linspace(mincorr,maxcorr,yh.shape[0])
         p = ax.plot(xhat,maxval*yh,"--",color = colors[0])
         lines.append(p)
+        
+        mode_images = images[i*P:(i+1)*P]
+        for l,met in enumerate(supp_metrics):
+            out=[]
+            for j in range(P):
+                out.append(met(mode_images[j]))
+            out = np.asarray(out)
+            if maxval==0:
+                maxval = np.max(out)
+            out = out*maxval/np.max(out)
+            line=ax.plot(xdata,out,marker='^',color=colors[l+1],linestyle="")
+            #print(line)
+            lines.append(line)
+            if fitter is not None:
+                poptf,xhf,yhf = fitter.fit(x,out)
+                fitted_data.append((poptf[0],xhf,yhf))
+                
+            #Filling the legend
+            legend.append(names[l])
+            if out.ndim==2:
+                for m in range(out.shape[1]-1):
+                    legend.append(names[l]+str(m+1))
+        
         if fitter is not None:
             poptf,xhf,yhf = fitter.fit(x,y)
             fitted_data.append((poptf[0],xhf,yhf))
@@ -2323,7 +2348,6 @@ def fast_fcs_results(file,fig=None,show_legend=True,
         ax.axvline(popts[0,i],color='red')
         
         for j,(op,xhf,yhf) in enumerate(fitted_data):
-            print("Fitted data")
             ax.plot(xhf,yhf*maxval/np.max(yhf,axis=0),'--') 
             ax.axvline(op)
             fitted_data = []
@@ -2370,10 +2394,8 @@ def fast_fcs_results(file,fig=None,show_legend=True,
                 ax2.semilogx(xx,autocorr_corrected[1:,1])
             ax2.semilogx(xx,autocorr_reference[1:,1])
             
-            print("Snooop dogg")
             ax2.legend(["Confocal","After correction","Before correction"])
         except Exception as e:
-            print("Snooop doggy dogg")
             print(e)"""
     return fig
 

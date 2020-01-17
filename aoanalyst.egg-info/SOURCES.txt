@@ -1,4 +1,4 @@
-README.rst
+README.md
 setup.py
 aoanalyst/__init__.py
 aoanalyst/aoanalyst.py
