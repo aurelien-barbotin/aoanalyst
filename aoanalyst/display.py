@@ -2443,6 +2443,7 @@ def plot_ac_curve(file,axes = None, fig=None):
 
 
     xt, yt = trace[:,0], trace[:,1]
+    yt*=10**-6 # conversion in MHz
     ax2.axhline(yt.mean(),linestyle="--",color="black")
     ax2.plot(xt,yt)
     ax2.set_ylabel("Counts (MHz)")
