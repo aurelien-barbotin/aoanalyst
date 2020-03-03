@@ -20,7 +20,6 @@ from matplotlib_scalebar.scalebar import ScaleBar
 
 from aoanalyst.io import file_extractor,comparison_file_extractor
 
-from slm.slm import SLM
 from scipy import ndimage
 
 def reorder(x,y):
@@ -705,36 +704,10 @@ def least_squares_registration(im1,im2):
     yo = y1[yo[0]]
     return xo,yo
 
-def show_phase(aberration,plot=True):
-    """Given an array of aberration coefficients, generates an image of the 
-    corresponding phase.
-    Parameters:
-        aberration: numpy array, list of aberration coefficients in Noll order
-        plot: bool, if True shows the phase mask in a separate plot
-    Return:
-        arr: 2D numpy array, the phase corresponding to the input aberration
-        """
-    slm = SLM()
-    slm.set_aberration(aberration)
-    arr = slm.phi
-    arr[slm.rho>1.0]=np.nan
-    if plot:
-        plt.figure()
-        plt.imshow(arr)
-        plt.axis("off")
-        plt.colorbar()
-    return arr
 
 def display_aberration_difference(ab):
 
     plt.figure()
-    plt.subplot(122)
-    arr=show_phase(ab,plot=False)
-    plt.imshow(arr,)
-    plt.axis("off")
-    plt.title("Corrected pupil function")
-    cbar = plt.colorbar()
-    cbar.set_label("Phase (rad)")
     x = np.arange(ab.size)
     ab=ab.reshape(-1)
     x = x[ab!=0]
