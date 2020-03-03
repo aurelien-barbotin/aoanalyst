@@ -113,8 +113,9 @@ def open_SIN(file, channel=1, x0 = 10**-3):
     
     
     ff.close()
-    return channels_of_interest
+    return channels_of_interest,intensity_channels
 
+    
 def find_angles(im):
     """Finds the angle of the principal components in a grayscale image like an
     intensity profile using PCA.
@@ -2419,18 +2420,20 @@ def extract_modal_parameters(path,summ_name):
         f.write(infos)
 
         
-def plot_ac_curve(file,fig = None):
+def plot_ac_curve(file,axes = None, fig=None):
     """Method to plot an AC curve from a npy file, useful for quick inspection"""
     if file.split(".")[-1]=="SIN":
-        corr = open_SIN(file)
+        corr, trace = open_SIN(file)
     else:
         corr = np.load(file, allow_pickle = True)
+        trace = np.ones(10)
         if len(corr)==2:
             corr = corr[0]
     x,y = corr[2:,0],corr[2:,1]
-    if fig is None:
+    if axes is None:
         fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+        axes= [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
+    ax2, ax = axes
     ax.semilogx(x,y)
     ax.axhline(0,color = "black")
     name = "".join(os.path.split(file)[-1].split(".")[:-1])
@@ -2438,6 +2441,14 @@ def plot_ac_curve(file,fig = None):
     ax.set_xlabel("τ (ms)")
     ax.set_ylabel("G(τ)")
 
+
+    xt, yt = trace[:,0], trace[:,1]
+    ax2.axhline(yt.mean(),linestyle="--",color="black")
+    ax2.plot(xt,yt)
+    ax2.set_ylabel("Counts (MHz)")
+    ax2.set_xlabel("Time (s)")
+    if fig is not None:
+        fig.tight_layout()
 def correlate_h5_1D(file, mfac=16,first=50000,erase=False):
     """Computes the autocorrelation functions in a CH-parameter
     FCS experiment.

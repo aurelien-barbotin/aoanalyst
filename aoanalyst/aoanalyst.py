@@ -212,6 +212,10 @@ class MatplotlibWindow(QDialog):
         self.canvas.mpl_connect('button_press_event', self.onclick)
         self.canvas.mpl_connect('pick_event', self.onpick)
         
+    def make_axes(self,n=2):
+        self.axes = [self.figure.add_subplot(2,1,1),
+                      self.figure.add_subplot(2,1,2)]
+        
     def onclick(self,event):
         try:
             print("On click")
@@ -370,9 +374,9 @@ class AOAnalyst_GUI(QWidget):
         self.plotBox.figure.clf()
         
         if file.split(".")[-1]=="npy" or file.split(".")[-1]=="SIN":
-            
+            self.plotBox.make_axes()
             try:
-                plot_ac_curve(file,fig = fig)
+                plot_ac_curve(file,axes=self.plotBox.axes, fig = self.plotBox.figure)
                 if extract:
                         plt.show()
                 else:
@@ -393,6 +397,7 @@ class AOAnalyst_GUI(QWidget):
                     self.plotBox.plot()
             except Exception as e:
                 print(e)
+                
     def plot_comparison(self,file,fig):
         self.plot_mode = "comparison"
         correction_comparison_plot(file,fig)
