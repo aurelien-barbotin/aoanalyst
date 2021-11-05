@@ -3,6 +3,7 @@ setup.py
 aoanalyst/__init__.py
 aoanalyst/aoanalyst.py
 aoanalyst/display.py
+aoanalyst/display_imfcs.py
 aoanalyst/graphics.py
 aoanalyst/io.py
 aoanalyst/misc.py

@@ -8,148 +8,20 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QDialog, QWidget, QApplication,QListWidgetItem,QPushButton
 
 from PyQt5.QtWidgets import QVBoxLayout
-from PyQt5.QtWidgets import QGridLayout,QGroupBox,QScrollArea,QCheckBox,QLabel
-from PyQt5.QtWidgets import QListWidget,QFileDialog, QErrorMessage, QComboBox,QLineEdit
+from PyQt5.QtWidgets import QGridLayout,QGroupBox,QScrollArea,QCheckBox
+from PyQt5.QtWidgets import QListWidget,QFileDialog
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
-import pywt
-import json
-
-from aoanalyst.display import analyse_experiment,display_results, plot_ac_curve
-
-from aoanalyst.graphics import plot_with_images,image_comparison,\
-                    correction_comparison_plot,aberration_difference_plot
-                    
-                    
-from aoanalyst.io import file_extractor
-
-from aoanalyst.sensorless import metrics
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 
-import sensorless.fitting as fitters
+from aoanalyst.display_imfcs import interactive_plot_h5
 
-
-path = "."
-
-from scipy import ndimage
-def crop(im):
-    u,v = im.shape
-    return im[round(0.1*u):round(0.9*u),round(0.1*v):round(0.9*v)]
-def sobel(im):
-    im = im.astype(np.float)
-    vert = ndimage.sobel(im,axis=0)
-    hori = ndimage.sobel(im,axis=1)
-    return np.sum((crop(vert)**2+crop(hori)**2))/np.sum(im**2)
-
-def decompose_dwt(img,lvl=4):
-    out = []
-    u,v = img.shape
-    u = u//2**lvl*2**lvl
-    v = v//2**lvl*2**lvl
-    img = img[0:u,0:v]
-    for i in range(lvl):
-        cA,cD = pywt.dwt2(img,"db1")
-        out.append(cA)
-        img = cA
-    return out
-
-def dwt_metric(img):
-    dec = decompose_dwt(img)
-    dec = [sobel(x*1.0) for x in dec]
-    return np.array(dec)
-
-"""metrics = {"mvect": lambda x: 1-compute_mvector(x)[-1],
-           "djcentral0123":lambda x:compute_mvector(x,djs=True,coeffs=[0,1,2,3]),
-           "djcentral0123den":lambda x:compute_mvector(x,denoise=True,djs=True,coeffs=[0,1,2,3]),
-           "djcentral012den":lambda x:compute_mvector(x,denoise=True,djs=True,coeffs=[0,1,2]),
-           "pywt": wavelet_metric,
-           "inte":lambda x: float(np.sum(x)),
-           "all_coeffs" : compute_mvector,
-           "pywt_3coeffs": lambda x: wlt_vector(x,lvl=3),
-           "djs_noNorm" : lambda x:compute_mvector(x,djs=True,normalise=False),
-           "all_pywt" : wlt_vector,
-           "hyperspherial":lambda x:hyperspherical(compute_mvector(x)),
-           "pywt_hyperspherical":lambda x:hyperspherical(wlt_vector(x)),
-           "djs":lambda x:compute_mvector(x,djs=True),
-           "djcentral12":lambda x:compute_mvector(x,djs=True,coeffs=[1,2]),
-           "djcentral13":lambda x:compute_mvector(x,djs=True,coeffs=[1,3]),
-           "djcentral123":lambda x:compute_mvector(x,djs=True,coeffs=[1,2,3]),
-           "norm_w_last": lambda x: compute_mvector(x,normwlast=True),
-           "pyw_nwl":lambda x: compute_mvector(x,normwlast=True,pyw=True),
-           "pyw": lambda x: compute_mvector(x,pyw=True),
-           "sobel": sobel,
-           "mvector_edges_djs":lambda x: compute_mvector(x,djs=True,entr=True),
-           "mvector_edges_ajs":lambda x: compute_mvector(x,djs=False,entr=True),
-           "mvector_edges_pyw":lambda x: compute_mvector(x,entr=True,pyw=True),
-           "mvector_edges_djs_nonorm":lambda x: compute_mvector(x,djs=True,entr=True,normalise=False),
-           "mvector_edges_ajs_nonorm":lambda x: compute_mvector(x,djs=False,entr=True,normalise=False),
-           "mvector_edges_pyw_nonorm":lambda x: compute_mvector(x,entr=True,pyw=True,normalise=False),
-           "dwt_metric": dwt_metric,
-           "mvector_edges_ajs_nonorm_2coeffs":lambda x: compute_mvector(x,djs=False,entr=True,normalise=False)[0:2],
-           "sobelvert_nonorm_2coeffs":lambda x: compute_mvector(x,djs=False,entr=True,normalise=False,vertical=True)[0:2],
-           "sobelhori_2coeffs":lambda x: compute_mvector(x,djs=False,entr=True,normalise=False,horizontal=True)[0:2]
-           }"""
-
-class DataLabel(object):
-    def __init__(self,opt1=None,opt2=None,comments=None,error=False,mode=None):
-        """Optimum 1 is the optimum that is considered the best. optimum 2
-        is the second best (useful in case it is unclear. comments is a string.
-        error in case """
-        self.optimum1 = opt1
-        self.optimum2 = opt2
-        self.comments = comments
-        self.error = error
-        self.mode = mode
-        self.dict={}
-        
-    def to_dict(self):
-        self.dict["optimum1"] = self.optimum1
-        self.dict["optimum2"] = self.optimum2
-        self.dict["comments"] = self.comments
-        self.dict["error"] = self.error
-        self.dict["mode"] = int(self.mode)
-        
-    def save(self,fname):
-        self.to_dict()
-        
-        if os.path.isfile(fname+".json"):
-            current_dict = self.load_dict(fname)
-            current_dict.update({self.mode:self.dict})
-        else:
-            current_dict = {self.mode:self.dict}
-        with open(fname+".json","w") as f:
-            json.dump(current_dict,f)
-    
-    def load_dict(self,fname):
-        """Loads the entire dictionary"""
-        with open(fname+".json","r") as f:
-            modes_dict=json.load(f)
-        return modes_dict
-    
-    def load(self,fname,current_mode):
-        print("load")
-        with open(fname+".json","r") as f:            
-            new_dict=json.load(f)
-            print(current_mode,new_dict.keys())
-        if current_mode not in new_dict and str(current_mode) not in new_dict:
-            return
-        if type(list(new_dict.keys())[0])==str:
-            self.dict = new_dict[str(current_mode)]
-        else:
-            self.dict = new_dict[current_mode]
-        print("dict:",self.dict)
-        self.optimum1 = self.dict["optimum1"]
-        self.optimum2 = self.dict["optimum2"]
-        self.comments = self.dict["comments"]
-        self.error = self.dict["error"]
-        self.mode = self.dict["mode"]
-        
 class ExperimentListWidget(QListWidget):
    """Class designed to contain the different correction rounds. Each correction
    element is stored in itemList. A correction item is a list of 
@@ -277,7 +149,7 @@ class AOAnalyst_GUI(QWidget):
         self.imageComparisonWidgetOn=False
         self.connects()
         
-        self.expListWidget.fill(path)
+        self.expListWidget.fill(".")
             
         self.grid = QGridLayout()
         self.setLayout(self.grid)
@@ -307,28 +179,12 @@ class AOAnalyst_GUI(QWidget):
         self.expListWidget.to_analyse.connect(self.update_plot)
         self.plotBox.plot_clicked.connect(self.update_interactive_plot)
         self.plotBox.back_to_plot.connect(self.update_plot)
-        self.plotBox.image_clicked.connect(self.compare_images)
         
     def disconnects(self):
         self.expListWidget.to_analyse.disconnect(self.update_plot)
         self.plotBox.plot_clicked.disconnect(self.update_interactive_plot)
         self.plotBox.back_to_plot.disconnect(self.update_plot)
-        self.plotBox.image_clicked.disconnect(self.compare_images)
-    
-    def compare_images(self,im):
-        if not self.imageComparisonWidgetOn:
-            self.imageComparisonWidget.deleteLater()
-            self.imageComparisonWidget = MatplotlibWindow()
-            self.grid.addWidget(self.imageComparisonWidget,1,6,5,5)
-            self.images_to_compare=[im,im]
-            self.imageComparisonWidgetOn = True
-        self.imageComparisonWidget.figure.clf()
-        
-        self.images_to_compare.pop(0)
-        self.images_to_compare.append(im)
-        image_comparison(self.images_to_compare[0],self.images_to_compare[1],
-                         fig = self.imageComparisonWidget.figure)
-        self.imageComparisonWidget.plot()
+
     
     def trash_measurement(self):
         try:
@@ -349,30 +205,12 @@ class AOAnalyst_GUI(QWidget):
                 file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
             except:
                 return 
-        
-        show_legend = self.displayLegendCheckBox.isChecked()
-        show_experimental = self.showOriginalCheckBox.isChecked()
-        
-        bool_fit_data = self.fitterOnCheckBox.isChecked()
-        fitter=None
-        
-        if bool_fit_data:
-            fittername = str(self.fitterListComboBox.currentText())
-            fitter=fitters.Fitter(fittername)
-
-        
-        supp_metrics=[]
-        names=[]
-        for i,metk in enumerate(metrics):
-            if self.metrics_bool[i]:
-                supp_metrics.append(metrics[metk])
-                names.append(metk)
-                
+        print(file)
         fig = None
         if not extract:
             fig = self.plotBox.figure
         self.plotBox.figure.clf()
-        
+        """
         if file.split(".")[-1]=="npy" or file.split(".")[-1]=="SIN":
             self.plotBox.make_axes()
             try:
@@ -396,74 +234,12 @@ class AOAnalyst_GUI(QWidget):
                 else:
                     self.plotBox.plot()
             except Exception as e:
-                print(e)
-                
-    def plot_comparison(self,file,fig):
-        self.plot_mode = "comparison"
-        correction_comparison_plot(file,fig)
-        
-    def plot_sensorless(self,file,fig):
-        self.plot_mode = "sensorless"
-        show_legend = self.displayLegendCheckBox.isChecked()
-        show_experimental = self.showOriginalCheckBox.isChecked()
-        
-        bool_fit_data = self.fitterOnCheckBox.isChecked()
-        fitter=None
-        
-        try:
-            if 'log_images' not in file_extractor(file):
-                os.remove(file)
-                self.refreshFileList()
-        except:
-            print("error when removing file")
-            
-        if bool_fit_data:
-            fittername = str(self.fitterListComboBox.currentText())
-            fitter=fitters.Fitter(fittername)
-
-        #try:
-        supp_metrics=[]
-        names=[]
-        for i,metk in enumerate(metrics):
-            if self.metrics_bool[i]:
-                supp_metrics.append(metrics[metk])
-                names.append(metk)
-        try:
-            analyse_experiment(file,fig=fig,
-                               supp_metrics=supp_metrics,names=names,
-                               show_legend=show_legend,
-                               show_experimental=show_experimental,
-                               fitter=fitter)
-
-                
-        except Exception as e:
-            self.error_dialog = QErrorMessage()
-            self.error_dialog.showMessage(str(e))
-            print(e)
-            
+                print(e)"""
+          
     def update_interactive_plot(self,mode):
         file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
         self.plotBox.figure.clf()
         print("update interactive plot")
-        self.plot_mode = "sensorless" #Temporary fix
-        if self.plot_mode=="sensorless":
-            self.current_mode = mode
-            self.load_comments()
-            #try:
-            supp_metrics=[]
-            names=[]
-            for i,metk in enumerate(metrics):
-                if self.metrics_bool[i]:
-                    supp_metrics.append(metrics[metk])
-                    names.append(metk)
-            plot_with_images(file,mode,fig=self.plotBox.figure,supp_metrics=
-                         supp_metrics)
-            """except Exception as e:
-                self.error_dialog = QErrorMessage()
-                self.error_dialog.showMessage(str(e)+"mode:"+str(mode) )    
-                print(e)"""
-        elif self.plot_mode=="comparison":
-            aberration_difference_plot(file,fig =self.plotBox.figure )
         
         self.plotBox.plot()
         
@@ -485,27 +261,6 @@ class AOAnalyst_GUI(QWidget):
         toplay = QGridLayout()
         top.setLayout(toplay)
         bool_rows=list()
-        
-        self.metrics_bool = np.zeros(len(metrics),dtype=bool)
-        
-        scroll = QScrollArea()
-        toplay.addWidget(scroll, 1, 0, 1, 5)
-        scroll.setWidget(QWidget())
-        scrollLayout = QGridLayout(scroll.widget())
-        scroll.setWidgetResizable(True)
-        
-        def update_mode(m):
-            def f(value):
-                self.metrics_bool[m] = value
-                self.update_plot()
-            return f
-            
-        for i,kn in enumerate(metrics):
-            index_bool = QCheckBox(kn)
-            upf = update_mode(i)
-            index_bool.toggled.connect(upf)
-            scrollLayout.addWidget(index_bool,i+1,0)
-            bool_rows.append(index_bool)
             
         self.metrics_tab = top
      
@@ -517,117 +272,10 @@ class AOAnalyst_GUI(QWidget):
         self.extractFigureButton = QPushButton("Extract figure")
         self.extractFigureButton.clicked.connect(lambda: self.update_plot(extract=True))
         
-        self.displayLegendCheckBox = QCheckBox("Show legend")
-        self.displayLegendCheckBox.setChecked(True)
-        self.displayLegendCheckBox.toggled.connect(lambda:self.update_plot())
-        
-        self.showOriginalCheckBox = QCheckBox("Display experimental data")
-        self.showOriginalCheckBox.setChecked(True)
-        self.showOriginalCheckBox.toggled.connect(lambda:self.update_plot())
-        
-        self.fitterOnCheckBox = QCheckBox("Fit data")
-        self.fitterOnCheckBox.toggled.connect(lambda:self.update_plot())
-        
-        self.dataSlicerPushButton = QPushButton("Fine analysis")
-        self.dataSlicerPushButton.clicked.connect(self.open_data_slicer)
-        
-        self.fitterListComboBox = QComboBox()
-        for fname in fitters.fitters_list:
-            self.fitterListComboBox.addItem(fname)
-        self.fitterListComboBox.currentIndexChanged.connect(lambda:self.update_plot())
-                
         toplay.addWidget(self.extractFigureButton,0,0)
-        toplay.addWidget(self.displayLegendCheckBox,0,1)
-        toplay.addWidget(self.showOriginalCheckBox,0,2)
-        
-        toplay.addWidget(self.dataSlicerPushButton,1,0)
-        toplay.addWidget(self.fitterOnCheckBox,1,1)
-        toplay.addWidget(self.fitterListComboBox,1,2)
-        
         self.custom_plot_tab = top
     
-    def make_labelling_tab(self):
-        # Not used anymore
-        top = QGroupBox('Labelling')
-        toplay = QGridLayout()
-        top.setLayout(toplay)
-    
-        self.opt1 = QLineEdit("0")
-        self.opt1Label = QLabel("Primary Optimum")
-        self.opt2 = QLineEdit("0")
-        self.opt2Label = QLabel("Scondary Optimum")
         
-        self.errorCheckBox = QCheckBox()
-        self.errorCheckBox.setChecked(False)
-        
-        self.saveButton = QPushButton("Save comments")
-        self.saveButton.clicked.connect(self.save_comments)
-        
-        self.commentLineEdit = QLineEdit("")
-        
-        toplay.addWidget(self.opt1Label,0,0)
-        toplay.addWidget(self.opt1,0,1)
-        toplay.addWidget(self.opt2Label,1,0)
-        toplay.addWidget(self.opt2,1,1)
-        
-        toplay.addWidget(QLabel("Error in data"),2,0)
-        toplay.addWidget(self.errorCheckBox,2,1)
-        toplay.addWidget(self.commentLineEdit,3,0,1,2)
-        toplay.addWidget(self.saveButton,4,0)
-        
-        self.labelling_tab = top
-        
-    def save_comments(self):
-        if self.current_mode is None:
-            self.error_dialog = QErrorMessage()
-            self.error_dialog.showMessage("No mode selected")
-            return
-        file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
-        
-        fname = file[:-3]
-        label = DataLabel(opt1 = self.opt1.text(),opt2 = self.opt2.text(),
-                          comments = self.commentLineEdit.text(),
-                          error = self.errorCheckBox.isChecked(),
-                          mode = self.current_mode)
-        label.save(fname)
-        
-    def load_comments(self):
-        label = DataLabel()
-        file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
-        fname = file[:-3]
-        if not os.path.isfile(fname+".json"):
-            return
-        label.load(fname,self.current_mode)
-        
-        self.opt1.setText(label.optimum1)
-        self.opt2.setText(label.optimum2)
-        self.errorCheckBox.setChecked(label.error)
-        self.commentLineEdit.setText(label.comments)
-        
-    def open_data_slicer(self):
-        if self.current_mode is None:
-            return
-        import sys
-        sys.path.append(r"C:\Users\Aurelien\Documents\Python Scripts\aotools\dataSlicer")
-        sys.path.append(r"../dataSlicer")
-        import dataSlicer
-        
-        mode = self.current_mode
-        
-        file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
-        ext = file_extractor(file)
-        P = ext["P"]
-        if "xdata" in ext:
-            xdata = ext['xdata'][:,mode]
-        else:
-            xdata=np.arange(P)
-        #ydata = ext['ydata'][:,mode]
-        images = ext["log_images"][P*mode:P*(mode+1)]
-        print(images.shape)
-        cw = dataSlicer.DataSlicer(n_images=P)
-        cw.show()
-        for j in range(P):
-            cw.imageWindows[j].set_image(images[j],str(xdata[j]) )
             
 app = QApplication([])
 win = AOAnalyst_GUI()
