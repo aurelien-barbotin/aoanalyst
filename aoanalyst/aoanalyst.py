@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QDialog, QWidget, QApplication,QListWidgetItem,QPush
 
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QGridLayout,QGroupBox,QScrollArea,QCheckBox
-from PyQt5.QtWidgets import QListWidget,QFileDialog
+from PyQt5.QtWidgets import QListWidget,QFileDialog, QComboBox
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
@@ -21,6 +21,7 @@ from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 
 from aoanalyst.display_imfcs import interactive_plot_h5
+from PyImFCS.class_imFCS import StackFCS
 
 class ExperimentListWidget(QListWidget):
    """Class designed to contain the different correction rounds. Each correction
@@ -47,8 +48,6 @@ class ExperimentListWidget(QListWidget):
        index = self.currentRow()
        self.clear()
        files = glob.glob(folder+"/*.h5")
-       files.extend(glob.glob(folder+"/*.npy"))
-       files.extend(glob.glob(folder+"/*.SIN"))
        files.sort()
        for file in files:
             self.addToList(file)
@@ -56,16 +55,18 @@ class ExperimentListWidget(QListWidget):
             self.setCurrentRow(index)
        except Exception as e:
             print(e)
+            
 class MatplotlibWindow(QDialog):
     plot_clicked = QtCore.Signal(int)
     back_to_plot = QtCore.Signal()
     image_clicked = QtCore.Signal(np.ndarray)
-    
+    onclickf = None
+    onclick_function = lambda x: print('no thing to display')
     def __init__(self, parent=None):
         super().__init__(parent)
 
         # a figure instance to plot on
-        self.figure = Figure()
+        self.figure = Figure(figsize = (20,15))
 
         # this is the Canvas Widget that displays the `figure`
         # it takes the `figure` instance as a parameter to __init__
@@ -89,26 +90,9 @@ class MatplotlibWindow(QDialog):
                       self.figure.add_subplot(2,1,2)]
         
     def onclick(self,event):
-        try:
-            print("On click")
-            if event.dblclick and event.button==1:
-                ns = self.figure.axes[0].get_subplotspec().get_gridspec().get_geometry()
-                assert(ns[0]==ns[1])
-                ns = ns[0]
-                
-                            
-                #gets the number of the subplot that is of interest for us
-                n_sub = event.inaxes.rowNum*ns + event.inaxes.colNum
-                self.figure.clf()
-                self.plot_clicked.emit(n_sub)
-            elif event.button==3: 
-               self.back_to_plot.emit()
-        except:
-            if event.dblclick and event.button==1:
-                self.figure.clf()
-                self.plot_clicked.emit(-1)
-            elif event.button==3: 
-               self.back_to_plot.emit()
+        if self.onclick_function is None:
+            return
+        self.onclick_function(event)
        
     def onpick(self,event):
         artist = event.artist
@@ -123,6 +107,8 @@ class MatplotlibWindow(QDialog):
         
 
 class AOAnalyst_GUI(QWidget):
+    onclick_function = None
+    current_stack = None
     def __init__(self,*args,**kwargs):
         super().__init__(*args, **kwargs)
         self.setAcceptDrops(True)
@@ -140,14 +126,17 @@ class AOAnalyst_GUI(QWidget):
         self.current_mode = None
         self.expListWidget = ExperimentListWidget()
         self.plotBox = MatplotlibWindow()
+        # self.plotBox.resize(1600,800)
         
         self.make_metrics_tab()
-        self.make_custom_plot_tab()
         # self.make_labelling_tab()
         
         self.imageComparisonWidget = QWidget()
         self.imageComparisonWidgetOn=False
         self.connects()
+        
+        # TODO
+        self.loaded = ""
         
         self.expListWidget.fill(".")
             
@@ -156,18 +145,18 @@ class AOAnalyst_GUI(QWidget):
         self.grid.addWidget(self.newAnalystButton,0,0,1,1)
         self.grid.addWidget(self.refreshButton,0,1,1,1)
         self.grid.addWidget(self.trashButton,0,2,1,1)
-        self.grid.addWidget(self.expListWidget,1,0,4,1)
-        self.grid.addWidget(self.plotBox,1,1,5,5)
-        self.grid.addWidget(self.imageComparisonWidget,1,6,5,5)
-        self.grid.addWidget(self.custom_plot_tab,6,1,1,5)
-        self.grid.addWidget(self.metrics_tab,5,0,2,1)
+        self.grid.addWidget(self.expListWidget,1,0,9,1)
+        
+        self.grid.addWidget(self.plotBox,1,1,10,10)
+        # self.grid.addWidget(self.imageComparisonWidget,1,1,1,5)
+        # self.grid.addWidget(self.custom_plot_tab,6,1,1,5)
+        self.grid.addWidget(self.metrics_tab,10,0,1,1)
         
         
     def dragEnterEvent(self, e):
         e.accept()
     
     def dropEvent(self,e):
-        print("drop",e.mimeData().hasUrls)
         for url in e.mimeData().urls():
             url = str(url.toLocalFile())
             if url[-3:]==".h5" or url[-3:]=="npy" or url[-3:]=="SIN":
@@ -198,18 +187,36 @@ class AOAnalyst_GUI(QWidget):
         os.rename(file,trashDir+"/"+name)
         self.refreshFileList()
         
-    def update_plot(self,file=None,extract=False):
+    def update_plot(self,file=None,extract=False, load_stack = True):
+        print("Update plot")
         self.current_mode = None
         if file is None:
             try:
                 file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
             except:
                 return 
-        print(file)
         fig = None
         if not extract:
             fig = self.plotBox.figure
         self.plotBox.figure.clf()
+        
+        if load_stack:
+            print('Load stack')
+            self.current_stack = StackFCS(file, load_stack = False)
+            self.current_stack.load()
+            nsums = self.current_stack.parfit_dict.keys()
+            print('update binnings 0')
+            _ = self.update_binnings(list(nsums))
+            print('update binnings 1')
+            self.binningComboBox.setCurrentIndex(0)
+        print('\n\naa')
+        print(self.binningComboBox.currentText())
+        nsum = int(self.binningComboBox.currentText())
+        print(type(nsum),nsum)
+        # nsum = int(float(nsum))
+        self.onclick_function = interactive_plot_h5(self.current_stack, fig=fig, nsum = nsum)
+        self.plotBox.onclick_function = self.onclick_function
+        print(self.binningComboBox.currentText(),)
         """
         if file.split(".")[-1]=="npy" or file.split(".")[-1]=="SIN":
             self.plotBox.make_axes()
@@ -242,7 +249,28 @@ class AOAnalyst_GUI(QWidget):
         print("update interactive plot")
         
         self.plotBox.plot()
+    
+    def update_binnings(self,nsums):
+        print('update binning:',nsums)
+        # self.binningComboBox.clear()
+        print("number in cbox",type(self.binningComboBox.count()),self.binningComboBox.count())
+        xc = self.binningComboBox.count()
+        """for j in range(xc):
+            print('remove thy item')
+            a = self.binningComboBox.removeItem(-1)"""
         
+        """a = self.binningComboBox.removeItem(1)
+        a = self.binningComboBox.removeItem(0)
+        print('update binning after:',nsums)
+        
+        for nn in nsums:
+            self.binningComboBox.addItem(str(nn))
+        self.binningComboBox.setCurrentIndex(0)"""
+        self.binningComboBox.disconnect()
+        self.binningComboBox.clear()
+        self.binningComboBox.addItems([str(w) for w in nsums])
+        self.binningComboBox.currentIndexChanged.connect(lambda x: self.update_plot(load_stack=False))
+        return 0
     def loadFiles(self,folder=None):
         if folder is None:
             folder = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
@@ -257,24 +285,17 @@ class AOAnalyst_GUI(QWidget):
         self.update_plot()
         
     def make_metrics_tab(self):
-        top = QGroupBox('Metrics')
+        top = QGroupBox('Binning')
         toplay = QGridLayout()
         top.setLayout(toplay)
-        bool_rows=list()
-            
+        
+        self.binningComboBox = QComboBox(self)
+        self.binningComboBox.addItem("2")
+        self.binningComboBox.addItem("4")
+        self.binningComboBox.currentIndexChanged.connect(lambda x: self.update_plot(load_stack=False))
+        toplay.addWidget(self.binningComboBox)
         self.metrics_tab = top
      
-    def make_custom_plot_tab(self):
-        top = QGroupBox('Plot options')
-        toplay = QGridLayout()
-        top.setLayout(toplay)
-        
-        self.extractFigureButton = QPushButton("Extract figure")
-        self.extractFigureButton.clicked.connect(lambda: self.update_plot(extract=True))
-        
-        toplay.addWidget(self.extractFigureButton,0,0)
-        self.custom_plot_tab = top
-    
         
             
 app = QApplication([])

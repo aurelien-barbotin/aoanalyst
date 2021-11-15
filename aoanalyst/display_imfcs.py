@@ -11,9 +11,10 @@ from PyImFCS.class_imFCS import StackFCS
 
 import matplotlib.pyplot as plt
 
-def interactive_plot_h5(path, fig = None, nsum = 2):
+def interactive_plot_h5(stack, fig = None, nsum = 2):
     if fig is None:
-        fig,axes = plt.subplots(2,4,figsize = (10,7))
-    stack = StackFCS(path)
-    stack.load()
-    multiplot_stack(stack,nsum)
+        print('creating figure')
+        fig  = plt.subplots(2,4,figsize = (10,7))
+    
+    onclickfunction = multiplot_stack(stack,nsum, fig=fig)
+    return onclickfunction
