@@ -5,7 +5,8 @@ Created on Tue Dec  5 14:51:54 2017
 @author: Aurelien
 """
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import QDialog, QWidget, QApplication,QListWidgetItem,QPushButton
+from PyQt5.QtWidgets import (QDialog, QWidget, QApplication,QListWidgetItem,
+                             QPushButton, QLineEdit, QLabel)
 
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QGridLayout,QGroupBox,QScrollArea,QCheckBox
@@ -22,6 +23,7 @@ from matplotlib.image import AxesImage
 
 from aoanalyst.display_imfcs import interactive_plot_h5
 from PyImFCS.class_imFCS import StackFCS
+from PyImFCS.export import merge_fcs_results
 
 class ExperimentListWidget(QListWidget):
    """Class designed to contain the different correction rounds. Each correction
@@ -56,6 +58,12 @@ class ExperimentListWidget(QListWidget):
        except Exception as e:
             print(e)
             
+   def get_filenames(self):
+        items = []
+        for x in range(self.count()-1):
+            items.append(self.item(x).data(QtCore.Qt.UserRole))
+        return items
+    
 class MatplotlibWindow(QDialog):
     plot_clicked = QtCore.Signal(int)
     back_to_plot = QtCore.Signal()
@@ -117,11 +125,13 @@ class AOAnalyst_GUI(QWidget):
         self.newAnalystButton = QPushButton("New Analyst")
         self.refreshButton = QPushButton("Refresh")
         self.trashButton = QPushButton("Trash")
+        self.exportButton = QPushButton("Export")
         
         self.newAnalystButton.clicked.connect(lambda :
             self.loadFiles(str(QFileDialog.getExistingDirectory(self, "Select Directory"))))
         self.refreshButton.clicked.connect(self.refreshFileList)
         self.trashButton.clicked.connect(self.trash_measurement)
+        self.exportButton.clicked.connect(self.export_measurements)
         
         self.current_mode = None
         self.expListWidget = ExperimentListWidget()
@@ -145,6 +155,7 @@ class AOAnalyst_GUI(QWidget):
         self.grid.addWidget(self.newAnalystButton,0,0,1,1)
         self.grid.addWidget(self.refreshButton,0,1,1,1)
         self.grid.addWidget(self.trashButton,0,2,1,1)
+        self.grid.addWidget(self.exportButton,0,3,1,1)
         self.grid.addWidget(self.expListWidget,1,0,9,1)
         
         self.grid.addWidget(self.plotBox,1,1,10,10)
@@ -174,7 +185,25 @@ class AOAnalyst_GUI(QWidget):
         self.plotBox.plot_clicked.disconnect(self.update_interactive_plot)
         self.plotBox.back_to_plot.disconnect(self.update_plot)
 
-    
+    def export_measurements(self):
+        filename = str(QFileDialog.getSaveFileName(self, "Select File name", filter="*.xlsx")[0])
+        if filename == "":
+            return
+        filename = filename+".xlsx"
+        files = self.expListWidget.get_filenames()
+        thr = None
+        tht  = self.thresholdLineEdit.text()
+        if tht.replace('.','',1).isdigit():
+            thr = float(tht)
+        
+        intensity_threshold = None
+        intensity_threshold_tmp = self.intensityLineEdit.text()
+        if intensity_threshold_tmp.replace('.','',1).isdigit():
+            intensity_threshold = float(intensity_threshold_tmp)
+        
+        merge_fcs_results(files, filename, 
+              intensity_threshold = intensity_threshold, chi_threshold = thr)
+        
     def trash_measurement(self):
         try:
             file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
@@ -205,46 +234,30 @@ class AOAnalyst_GUI(QWidget):
             self.current_stack = StackFCS(file, load_stack = False)
             self.current_stack.load()
             nsums = self.current_stack.parfit_dict.keys()
-            print('update binnings 0')
             _ = self.update_binnings(list(nsums))
-            print('update binnings 1')
             self.binningComboBox.setCurrentIndex(0)
-        print('\n\naa')
-        print(self.binningComboBox.currentText())
         nsum = int(self.binningComboBox.currentText())
-        print(type(nsum),nsum)
-        # nsum = int(float(nsum))
-        self.onclick_function = interactive_plot_h5(self.current_stack, fig=fig, nsum = nsum)
-        self.plotBox.onclick_function = self.onclick_function
-        print(self.binningComboBox.currentText(),)
-        """
-        if file.split(".")[-1]=="npy" or file.split(".")[-1]=="SIN":
-            self.plotBox.make_axes()
-            try:
-                plot_ac_curve(file,axes=self.plotBox.axes, fig = self.plotBox.figure)
-                if extract:
-                        plt.show()
-                else:
-                    self.plotBox.plot()
-            except Exception as e:
-                print(e)
-        else:
-            try:
-                self.osef=display_results(file,fig=fig,
-                                   supp_metrics=supp_metrics,names=names,
-                                   show_legend=show_legend,
-                                   show_experimental=show_experimental,
-                                   fitter=fitter)
         
-                if extract:
-                        plt.show()
-                else:
-                    self.plotBox.plot()
-            except Exception as e:
-                print(e)"""
+        vmax = None
+        vt  = self.vmaxLineEdit.text()
+        print(vt)
+        if vt.replace('.','',1).isdigit():
+            print('is digit')
+            vmax = float(vt)
+        
+        
+        thr = None
+        tht  = self.thresholdLineEdit.text()
+        if tht.replace('.','',1).isdigit():
+            print('threshold is digit')
+            thr = float(tht)
+            
+        self.onclick_function = interactive_plot_h5(self.current_stack, fig=fig, 
+                                                nsum = nsum, vmax=vmax, chi_threshold = thr)
+        self.plotBox.onclick_function = self.onclick_function
+        
           
     def update_interactive_plot(self,mode):
-        file = self.expListWidget.currentItem().data(QtCore.Qt.UserRole)
         self.plotBox.figure.clf()
         print("update interactive plot")
         
@@ -254,23 +267,13 @@ class AOAnalyst_GUI(QWidget):
         print('update binning:',nsums)
         # self.binningComboBox.clear()
         print("number in cbox",type(self.binningComboBox.count()),self.binningComboBox.count())
-        xc = self.binningComboBox.count()
-        """for j in range(xc):
-            print('remove thy item')
-            a = self.binningComboBox.removeItem(-1)"""
-        
-        """a = self.binningComboBox.removeItem(1)
-        a = self.binningComboBox.removeItem(0)
-        print('update binning after:',nsums)
-        
-        for nn in nsums:
-            self.binningComboBox.addItem(str(nn))
-        self.binningComboBox.setCurrentIndex(0)"""
+
         self.binningComboBox.disconnect()
         self.binningComboBox.clear()
         self.binningComboBox.addItems([str(w) for w in nsums])
         self.binningComboBox.currentIndexChanged.connect(lambda x: self.update_plot(load_stack=False))
         return 0
+    
     def loadFiles(self,folder=None):
         if folder is None:
             folder = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
@@ -293,9 +296,26 @@ class AOAnalyst_GUI(QWidget):
         self.binningComboBox.addItem("2")
         self.binningComboBox.addItem("4")
         self.binningComboBox.currentIndexChanged.connect(lambda x: self.update_plot(load_stack=False))
-        toplay.addWidget(self.binningComboBox)
+        
+        self.vmaxLineEdit = QLineEdit("None")
+        self.vmaxLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
+        
+        self.thresholdLineEdit = QLineEdit("None")
+        self.thresholdLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
+        
+        self.intensityLineEdit = QLineEdit("None")
+        # self.intensityLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
+        
+        toplay.addWidget(self.binningComboBox,0,0)
+        toplay.addWidget(self.vmaxLineEdit,1,1)
+        toplay.addWidget(QLabel("Max diff. shown"),1,0)
+        toplay.addWidget(self.thresholdLineEdit,2,1)
+        toplay.addWidget(QLabel("Chi threshold"),2,0)
+        toplay.addWidget(self.intensityLineEdit,3,1)
+        toplay.addWidget(QLabel("Intensity threshold (0-1)"),3,0)
         self.metrics_tab = top
-     
+        
+        
         
             
 app = QApplication([])
