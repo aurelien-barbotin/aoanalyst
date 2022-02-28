@@ -229,10 +229,12 @@ class AOAnalyst_GUI(QWidget):
             fig = self.plotBox.figure
         self.plotBox.figure.clf()
         
+        light_version= self.lightDisplayCheckBox.isChecked()
+            
         if load_stack:
             print('Load stack')
             self.current_stack = StackFCS(file, load_stack = False)
-            self.current_stack.load()
+            self.current_stack.load(light_version =light_version)
             nsums = self.current_stack.parfit_dict.keys()
             _ = self.update_binnings(list(nsums))
             self.binningComboBox.setCurrentIndex(0)
@@ -240,11 +242,8 @@ class AOAnalyst_GUI(QWidget):
         
         vmax = None
         vt  = self.vmaxLineEdit.text()
-        print(vt)
         if vt.replace('.','',1).isdigit():
-            print('is digit')
             vmax = float(vt)
-        
         
         thr = None
         tht  = self.thresholdLineEdit.text()
@@ -253,7 +252,7 @@ class AOAnalyst_GUI(QWidget):
             thr = float(tht)
             
         self.onclick_function = interactive_plot_h5(self.current_stack, fig=fig, 
-                                                nsum = nsum, vmax=vmax, chi_threshold = thr)
+                        nsum = nsum, vmax=vmax, chi_threshold = thr, light_version = light_version)
         self.plotBox.onclick_function = self.onclick_function
         
           
@@ -288,7 +287,7 @@ class AOAnalyst_GUI(QWidget):
         self.update_plot()
         
     def make_metrics_tab(self):
-        top = QGroupBox('Binning')
+        top = QGroupBox('Display options')
         toplay = QGridLayout()
         top.setLayout(toplay)
         
@@ -305,14 +304,19 @@ class AOAnalyst_GUI(QWidget):
         
         self.intensityLineEdit = QLineEdit("None")
         # self.intensityLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
+        self.lightDisplayCheckBox = QCheckBox("Light version")
+        self.lightDisplayCheckBox.setChecked(True)
+        self.lightDisplayCheckBox.toggled.connect(lambda : self.update_plot(load_stack=False))
         
-        toplay.addWidget(self.binningComboBox,0,0)
+        toplay.addWidget(QLabel("Binning"),0,0)
+        toplay.addWidget(self.binningComboBox,0,1)
         toplay.addWidget(self.vmaxLineEdit,1,1)
         toplay.addWidget(QLabel("Max diff. shown"),1,0)
         toplay.addWidget(self.thresholdLineEdit,2,1)
         toplay.addWidget(QLabel("Chi threshold"),2,0)
         toplay.addWidget(self.intensityLineEdit,3,1)
         toplay.addWidget(QLabel("Intensity threshold (0-1)"),3,0)
+        toplay.addWidget(self.lightDisplayCheckBox,4,0,1,2)
         self.metrics_tab = top
         
         
