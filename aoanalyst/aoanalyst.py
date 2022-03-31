@@ -60,7 +60,7 @@ class ExperimentListWidget(QListWidget):
             
    def get_filenames(self):
         items = []
-        for x in range(self.count()-1):
+        for x in range(self.count()):
             items.append(self.item(x).data(QtCore.Qt.UserRole))
         return items
     
@@ -200,9 +200,11 @@ class AOAnalyst_GUI(QWidget):
         intensity_threshold_tmp = self.intensityLineEdit.text()
         if intensity_threshold_tmp.replace('.','',1).isdigit():
             intensity_threshold = float(intensity_threshold_tmp)
-        
+            
+        print('Start exporting measurements ...')
         merge_fcs_results(files, filename, 
               intensity_threshold = intensity_threshold, chi_threshold = thr)
+        print('Done exporting measurements')
         
     def trash_measurement(self):
         try:
@@ -299,14 +301,14 @@ class AOAnalyst_GUI(QWidget):
         self.vmaxLineEdit = QLineEdit("None")
         self.vmaxLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
         
-        self.thresholdLineEdit = QLineEdit("None")
+        self.thresholdLineEdit = QLineEdit("0.03")
         self.thresholdLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
         
-        self.intensityLineEdit = QLineEdit("None")
+        self.intensityLineEdit = QLineEdit("0.5")
         # self.intensityLineEdit.editingFinished.connect(lambda : self.update_plot(load_stack=False))
         self.lightDisplayCheckBox = QCheckBox("Light version")
         self.lightDisplayCheckBox.setChecked(True)
-        self.lightDisplayCheckBox.toggled.connect(lambda : self.update_plot(load_stack=False))
+        self.lightDisplayCheckBox.toggled.connect(lambda : self.update_plot(load_stack= not self.lightDisplayCheckBox.isChecked()))
         
         toplay.addWidget(QLabel("Binning"),0,0)
         toplay.addWidget(self.binningComboBox,0,1)
