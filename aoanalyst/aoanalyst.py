@@ -265,9 +265,6 @@ class AOAnalyst_GUI(QWidget):
         self.plotBox.plot()
     
     def update_binnings(self,nsums):
-        print('update binning:',nsums)
-        # self.binningComboBox.clear()
-        print("number in cbox",type(self.binningComboBox.count()),self.binningComboBox.count())
 
         self.binningComboBox.disconnect()
         self.binningComboBox.clear()
@@ -320,10 +317,7 @@ class AOAnalyst_GUI(QWidget):
         toplay.addWidget(QLabel("Intensity threshold (0-1)"),3,0)
         toplay.addWidget(self.lightDisplayCheckBox,4,0,1,2)
         self.metrics_tab = top
-        
-        
-        
-            
+   
 app = QApplication([])
 win = AOAnalyst_GUI()
 win.show()
