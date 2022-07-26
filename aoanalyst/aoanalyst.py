@@ -22,8 +22,9 @@ from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 
 from aoanalyst.display_imfcs import interactive_plot_h5
-from PyImFCS.class_imFCS import StackFCS
-from PyImFCS.export import merge_fcs_results
+from pyimfcs.class_imFCS import StackFCS
+from pyimfcs.export import merge_fcs_results
+
 
 class ExperimentListWidget(QListWidget):
    """Class designed to contain the different correction rounds. Each correction

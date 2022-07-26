@@ -6,8 +6,8 @@ Created on Fri Nov  5 13:30:12 2021
 @author: aurelien
 """
 
-from PyImFCS.hover_plot import multiplot_stack, multiplot_stack_light
-from PyImFCS.class_imFCS import StackFCS
+from pyimfcs.hover_plot import multiplot_stack, multiplot_stack_light
+from pyimfcs.class_imFCS import StackFCS
 
 import matplotlib.pyplot as plt
 
